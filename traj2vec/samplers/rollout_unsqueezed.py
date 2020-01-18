@@ -13,7 +13,7 @@ def rollout(policy, env, max_path_length, add_input=None, plot=False):
             policy_input = np_to_var(obs).unsqueeze(0)
         action_dist = policy.forward(policy_input)
         action = action_dist.sample()
-        next_obs, reward, done, info = env.step(get_numpy(action)[0])
+        next_obs, reward, done, info = env.step(get_numpy(action).item())
         sd['obs'].append(obs)
         sd['rewards'].append(reward)
         sd['actions'].append(action)

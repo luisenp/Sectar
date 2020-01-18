@@ -134,7 +134,7 @@ class BatchPolopt:
             ('Min Return', sd['returns'][:, 0].min()),
             ('Max Return', sd['returns'][:, 0].max()),
             ('Var Return', sd['returns'][:, 0].var()),
-            ('Entropy', get_numpy(sd['entropy'].mean())[0]),
+            ('Entropy', get_numpy(sd['entropy'].mean()).item()),
             #('Policy loss', -(get_numpy(sd['log_prob']) * sd['discount_adv']).sum(-1).mean()),
         ])
 

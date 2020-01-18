@@ -109,7 +109,7 @@ class TRPO(BatchPolopt):
         loss_before = self.loss(samples_data)
         loss_before.backward()
         flat_g = self.policy.get_params_flat()
-        loss_before = get_numpy(loss_before)[0]
+        loss_before = get_numpy(loss_before).item()
 
         Hx = self._hvp_approach.build_eval(samples_data)
 

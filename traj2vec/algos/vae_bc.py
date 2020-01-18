@@ -154,7 +154,7 @@ class VAEBC:
                 self.optimizer.step()
 
             for k in stats.keys():
-                full_stats[k] += get_numpy(stats[k])[0]
+                full_stats[k] += get_numpy(stats[k]).item()
             n_batch += 1
             if n_batch >= max_steps:
                 break
@@ -239,7 +239,7 @@ class VAEBC:
         z = z_dist.sample()
         y_dist = self.decode(x, z)
         log_likelihood = torch.pow(y_dist.mle - Variable(y), 2).mean(-1).mean(0)
-        return get_numpy(log_likelihood)[0]
+        return get_numpy(log_likelihood).item()
 
 
     def sample(self, dataset, sample_size):

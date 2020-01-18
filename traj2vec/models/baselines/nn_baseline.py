@@ -32,7 +32,7 @@ class NNBaseline(Baseline):
                 loss = (self.network(x) - y).pow(2).mean()
                 loss.backward()
                 self.optimizer.step()
-        print('loss %f' % get_numpy(loss)[0])
+        print('loss %f' % get_numpy(loss).item())
 
     def forward(self, obs):
         return self.network(obs)

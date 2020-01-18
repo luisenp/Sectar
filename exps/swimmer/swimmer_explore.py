@@ -25,7 +25,7 @@ from traj2vec.models.containers.mixed_network import MixedRecurrentNetwork
 from traj2vec.nn.mlp import MLP
 from traj2vec.nn.parameter import Parameter
 from traj2vec.nn.rnn import RNN
-from traj2vec.launchers.launcher_util_andrew import run_experiment
+from traj2vec.launchers.launcher_util_lep import run_experiment
 from traj2vec.nn.running_stat import ObsNorm
 from traj2vec.utils.torch_utils import set_gpu_mode
 from traj2vec.envs.swimmer import SwimmerEnv, reward_fn, init_rstate
@@ -250,7 +250,7 @@ launcher_config.DIR_AND_MOUNT_POINT_MAPPINGS.append(
          mount_point='/root/code' + command_args['initial_data_path']))
 
 
-goals = np.load('goals/swim.npy').tolist()
+goals = np.load('/private/home/lep/code/Sectar/goals/swim.npy').tolist()
 
 params = {
     'path_len': [99],

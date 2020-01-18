@@ -441,7 +441,7 @@ class VAEPDEntropy:
 
         traj_sets = [sd_traj_obs, pd_traj['obs'][:, 1:]]
       
-        pd_traj['stats']['mse_sd_pd'] = get_numpy(mse_sd_pd.mean())[0]
+        pd_traj['stats']['mse_sd_pd'] = get_numpy(mse_sd_pd.mean()).item()
         pd_traj['stats']['ll'] = np.mean(get_numpy(se))
 
         return pd_traj['stats']
@@ -528,7 +528,7 @@ class VAEPDEntropy:
                 if loss is not None:
                     losses.append(loss)
                     for k, v in stat_var.items():
-                        stats[k].append(get_numpy(v)[0])
+                        stats[k].append(get_numpy(v).item())
             if len(losses) > 0:
                 total_loss = sum(losses) / len(losses)
                 total_loss.backward()

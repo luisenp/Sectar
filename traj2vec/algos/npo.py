@@ -48,7 +48,7 @@ class NPO(BatchPolopt):
 
         flat_grad = torch.cat([g.view(-1) for g in grads])
         #import pdb; pdb.set_trace()
-        return [get_numpy(penalized_loss.double())[0], get_numpy(flat_grad.double())]
+        return [get_numpy(penalized_loss.double()).item(), get_numpy(flat_grad.double())]
 
     def compute_loss_terms(self, sd, penalty):
 
@@ -103,8 +103,8 @@ class NPO(BatchPolopt):
             )
 
             _, try_loss, try_constraint_val = self.compute_loss_terms(samples_data, try_penalty)
-            try_loss = get_numpy(try_loss)[0]
-            try_constraint_val = get_numpy(try_constraint_val)[0]
+            try_loss = get_numpy(try_loss).item()
+            try_constraint_val = get_numpy(try_constraint_val).item()
 
             logger.log('penalty %f => loss %f, %s %f' %
                        (try_penalty, try_loss, self._constraint_name, try_constraint_val))

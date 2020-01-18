@@ -54,11 +54,7 @@ def from_numpy(*args, **kwargs):
 
 
 def get_numpy(tensor):
-    if isinstance(tensor, torch.autograd.Variable):
-        return get_numpy(tensor.data)
-    if _use_gpu:
-        return tensor.cpu().numpy()
-    return tensor.numpy()
+    return tensor.detach().cpu().numpy()
 
 
 def np_to_var(np_array):

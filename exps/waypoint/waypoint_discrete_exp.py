@@ -237,7 +237,8 @@ variant_group.add_argument('--max_itr', default=1000, type=int)
 v_command_args = parser.parse_args()
 command_args = {k.dest:vars(v_command_args)[k.dest] for k in variant_group._group_actions}
 
-goals = np.load('goals/waypoint_goals.npy').tolist()
+# goals = np.load('goals/waypoint_goals.npy').tolist()
+goals = np.load('/private/home/lep/code/Sectar/goals/waypoint_goals.npy').tolist()
 goals = [(x[0][:2], x[1]) for x in goals]
 
 params = {

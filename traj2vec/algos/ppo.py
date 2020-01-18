@@ -100,10 +100,10 @@ class PPO(BatchPolopt):
                 total_loss.backward()
                 self.optimizer.step()
             if print:
-                stats = {'total loss': get_numpy(total_loss)[0],
-                         'action loss': get_numpy(action_loss)[0],
-                         'value loss': get_numpy(value_loss)[0],
-                         'entropy' : get_numpy(dist_entropy)[0]}
+                stats = {'total loss': get_numpy(total_loss).item(),
+                         'action loss': get_numpy(action_loss).item(),
+                         'value loss': get_numpy(value_loss).item(),
+                         'entropy' : get_numpy(dist_entropy).item()}
                 with logger.prefix('Train PPO itr %d epoch itr %d | ' %(itr, epoch_itr)):
                     self.print_diagnostics(stats)
 
