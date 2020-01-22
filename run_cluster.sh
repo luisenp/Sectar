@@ -34,5 +34,5 @@ for GOAL in 1 2 3 4 5; do
     echo "nvidia-smi" >> ${SCRIPT}
     echo "cd ${SUBDIR}/exps/${ENV}" >> ${SCRIPT}
     echo MKL_THREADING_LAYER=GNU python ${ENV}_exp.py --goal_index ${GOAL} >> ${SCRIPT}
-#    sbatch ${SLURM}
+    sbatch ${SLURM}
 done

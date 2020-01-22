@@ -245,6 +245,7 @@ variant_group.add_argument('--load_models_dir', default=None)
 variant_group.add_argument('--load_models_idx', default=None, type=int)
 variant_group.add_argument('--env_name', default='WheeledEnvGym-v0')
 variant_group.add_argument('--max_itr', default=1000, type=int)
+variant_group.add_argument('--goal_index', default=0, type=int)
 variant_group.add_argument('--initial_data_path', default='/../traj2vecv3_master/data/test_data/playpen/block_bc.npz')
 
 v_command_args = parser.parse_args()
@@ -300,30 +301,30 @@ params = {
 
 exp_id = 0
 command_args['gpu'] = command_args['gpu'] == 'True'
-for args in Sweeper(params, 1):
-    env_name = command_args['env_name'].split('-')[0]
-    alg_name = command_args['algo']
-    exp_dir = command_args['exp_dir']
-    print("gpu", command_args['gpu'], type(command_args['gpu']))
-    if command_args['debug'] != 'None':
-        with open(command_args['debug'] + "variant.json", 'r') as f:
-            args = json.loads(f.read())
-        for k in ('exp_id','seed'):
-            args[k] = int(args[k])
-        command_args['load_models_dir'] = command_args['debug'] + "snapshots/"
-    base_log_dir = getcwd() + '/data/%s/%s/%s' % (alg_name, env_name, exp_dir)
-    run_experiment(
-        run_task,
-        exp_id=exp_id,
-        use_gpu=command_args['gpu'],
-        mode=command_args['mode'],
-        seed=args['seed'],
-        prepend_date_to_exp_prefix=False,
-        exp_prefix='%s-%s-%s' %(env_name, alg_name, exp_dir),
-        base_log_dir=base_log_dir,
-        variant={**args, **command_args},
-    )
-    if command_args['debug'] != 'None':
-        sys.exit(0)
-    exp_id += 1
+all_args = list(Sweeper(params, 1))
+args = all_args[command_args['goal_index']]
+env_name = command_args['env_name'].split('-')[0]
+alg_name = command_args['algo']
+exp_dir = command_args['exp_dir']
+print("gpu", command_args['gpu'], type(command_args['gpu']))
+if command_args['debug'] != 'None':
+    with open(command_args['debug'] + "variant.json", 'r') as f:
+        args = json.loads(f.read())
+    for k in ('exp_id','seed'):
+        args[k] = int(args[k])
+    command_args['load_models_dir'] = command_args['debug'] + "snapshots/"
+base_log_dir = getcwd() + '/data/%s/%s/%s' % (alg_name, env_name, exp_dir)
+run_experiment(
+    run_task,
+    exp_id=exp_id,
+    use_gpu=command_args['gpu'],
+    mode=command_args['mode'],
+    seed=args['seed'],
+    prepend_date_to_exp_prefix=False,
+    exp_prefix='%s-%s-%s' %(env_name, alg_name, exp_dir),
+    base_log_dir=base_log_dir,
+    variant={**args, **command_args},
+)
+if command_args['debug'] != 'None':
     sys.exit(0)
+exp_id += 1

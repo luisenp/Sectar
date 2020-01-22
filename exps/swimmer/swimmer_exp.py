@@ -241,7 +241,7 @@ variant_group.add_argument('--load_models_dir', default=None)
 variant_group.add_argument('--load_models_idx', default=None, type=int)
 variant_group.add_argument('--env_name', default='SwimmerEnv')
 variant_group.add_argument('--max_itr', default=1000, type=int)
-variant_group.add_argument('--goal_index', default=3, type=int)
+variant_group.add_argument('--goal_index', default=0, type=int)
 variant_group.add_argument('--initial_data_path', default='/../traj2vecv3_master/data/test_data/playpen/block_bc.npz')
 
 v_command_args = parser.parse_args()
