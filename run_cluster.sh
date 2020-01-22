@@ -4,8 +4,7 @@ CURDIR=`pwd`
 ENV=${2:-waypoint}
 CHECKPOINT_DIR=$1/${ENV}
 
-
-for GOAL in 1 2 3 4 5; do
+for GOAL in 0 1 2 3 4; do
     SUBDIR=${CHECKPOINT_DIR}/goal_${GOAL}
     mkdir -p ${SUBDIR}
     mkdir -p ${SUBDIR}/jobscripts
@@ -18,8 +17,8 @@ for GOAL in 1 2 3 4 5; do
     echo "#!/bin/sh" > ${SCRIPT}
     echo "#!/bin/sh" > ${SLURM}
     echo "#SBATCH --job-name=${JOBNAME}" >> ${SLURM}
-    echo "#SBATCH --output=${CHECKPOINT_DIR}/stdout" >> ${SLURM}
-    echo "#SBATCH --error=${CHECKPOINT_DIR}/stderr" >> ${SLURM}
+    echo "#SBATCH --output=${SUBDIR}/stdout" >> ${SLURM}
+    echo "#SBATCH --error=${SUBDIR}/stderr" >> ${SLURM}
     echo "#SBATCH --partition=dev" >> ${SLURM}
     echo "#SBATCH --nodes=1" >> ${SLURM}
     echo "#SBATCH --time=4000" >> ${SLURM}
