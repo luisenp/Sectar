@@ -63,7 +63,7 @@ class WaypointPlayPenDiscreteGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
         onehot[self.attached_object[0]+1] = 1
         #onehot = self.attached_object
         obslist = [
-            np.array(self.model.data.qpos.flat)[:2],
+            np.array(self.sim.data.qpos.flat)[:2],
         ]
         if self.include_rstate:
             obslist.append(onehot)
@@ -117,23 +117,10 @@ class WaypointPlayPenDiscreteGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
         # TODO: Better reset function?
         # print(self.reset_args)
         self.rstate = init_rstate(1)
-        full_qpos = np.zeros((10, 1))
-        full_qpos[2, 0] = 0.0
-        full_qpos[3, 0] = 0.0
+        full_qpos = np.zeros(10)
+        full_qpos[:2] = self.reset_args[:2]
 
-        full_qpos[4, 0] = 0.0
-        full_qpos[5, 0] = 0.0
-
-        full_qpos[6, 0] = 0.0
-        full_qpos[7, 0] = 0.0
-
-        full_qpos[8, 0] = 0.0
-        full_qpos[9, 0] = 0.0
-        full_qpos[:2, 0] = self.reset_args[:2]
-
-        self.model.data.qpos = full_qpos
-        self.model._compute_subtree()
-        self.model.forward()
+        self.set_state(full_qpos, self.init_qvel)
         self.attached_object = (-1, -1)
         # if len(self.reset_args) > 10:
         #     self.attached_object = self.all_objects[np.argmax(self.reset_args[10:15])]
@@ -145,7 +132,7 @@ class WaypointPlayPenDiscreteGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
         target_index = self.target_colors.index(nlp_sentence[2])
 
         def reward_fn(obs):
-            obj_pos = np.array([self.model.data.qpos[i, 0] for i in self.object_dict[(color_to_move, object_to_move)]])
+            obj_pos = np.array([self.sim.data.qpos[i, 0] for i in self.object_dict[(color_to_move, object_to_move)]])
             target_pos = self.model.geom_pos[self.target_dict[target_index]][0:2]
             dist_objectfist = -np.linalg.norm((obs[0:2] - obj_pos))
             dist_objectgoal = -np.linalg.norm((obj_pos - target_pos))
@@ -153,7 +140,7 @@ class WaypointPlayPenDiscreteGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
 
         return reward_fn
 
-    def _step(self, action):
+    def step(self, action):
         if not isinstance(action, int) and action.size > 1:
             action = 0
         self.move(action)
@@ -165,7 +152,7 @@ class WaypointPlayPenDiscreteGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
 
     # TODO deal with collisions
     def move(self, action):
-        current_fist_pos = self.model.data.qpos[0:2].flatten()
+        current_fist_pos = self.sim.data.qpos[0:2].flatten()
         # TODO: Need to put action limits on this
         if action == 0:
             next_fist_pos = current_fist_pos + np.array([self.move_distance, 0])
@@ -183,19 +170,22 @@ class WaypointPlayPenDiscreteGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
         next_fist_pos = np.clip(next_fist_pos, -2.8, 2.8)
         # Moving the objects jointly
         if self.attached_object != (-1, -1):
-            current_obj_pos = np.array([self.model.data.qpos[i, 0] for i in self.object_dict[self.attached_object]])
+            current_obj_pos = np.array([self.sim.data.qpos[i, 0] for i in self.object_dict[self.attached_object]])
             current_obj_pos += (next_fist_pos - current_fist_pos)
 
         # Setting the final positions
-        curr_qpos = self.model.data.qpos.copy()
-        curr_qpos[0, 0] = next_fist_pos[0]
-        curr_qpos[1, 0] = next_fist_pos[1]
+        curr_qpos = self.sim.data.qpos.copy()
+        # curr_qpos[0, 0] = next_fist_pos[0]
+        # curr_qpos[1, 0] = next_fist_pos[1]
+        curr_qpos[0] = next_fist_pos[0]
+        curr_qpos[1] = next_fist_pos[1]
         if self.attached_object != (-1, -1):
             for enum_n, i in enumerate(self.object_dict[self.attached_object]):
                 curr_qpos[i, 0] = current_obj_pos[enum_n]
-        self.model.data.qpos = curr_qpos
-        self.model._compute_subtree()
-        self.model.forward()
+        self.set_state(curr_qpos, self.init_qvel)
+        # self.sim.data.qpos = curr_qpos
+        # self.model._compute_subtree()
+        # self.model.forward()
 
     #@property
     def get_action_space(self):
