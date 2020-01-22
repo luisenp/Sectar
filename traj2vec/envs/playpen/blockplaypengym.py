@@ -63,7 +63,7 @@ class BlockPlayPenGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
         onehot = np.zeros(5)
         onehot[self.attached_object[0]+1] = 1
         obslist = [
-            self.model.data.qpos.flat,
+            self.sim.data.qpos.flat,
             onehot
         ]
         if self.include_rstate:
@@ -116,31 +116,32 @@ class BlockPlayPenGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
     def reset_model(self):
         # TODO: Better reset function?
         # print(self.reset_args)
-        full_qpos = np.zeros((10, 1))
-        full_qpos[2, 0] = 2.6
-        full_qpos[3, 0] = 0.0
+        full_qpos = np.zeros(10)
+        full_qpos[2] = 2.6
+        full_qpos[3] = 0.0
 
-        full_qpos[4, 0] = 2.6
-        full_qpos[5, 0] = 1.0
+        full_qpos[4] = 2.6
+        full_qpos[5] = 1.0
 
-        full_qpos[6, 0] = 2.6
-        full_qpos[7, 0] = -1.0
+        full_qpos[6] = 2.6
+        full_qpos[7] = -1.0
 
-        full_qpos[8, 0] = 2.6
-        full_qpos[9, 0] = 2.0
-        full_qpos[:10, 0] = self.reset_args[:10]
+        full_qpos[8] = 2.6
+        full_qpos[9] = 2.0
+        full_qpos[:10] = self.reset_args[:10]
         if self.init_rstate is not None:
             self.rstate = self.init_rstate(1)
 
-        self.model.data.qpos = full_qpos
-        self.model._compute_subtree()
-        self.model.forward()
+        self.set_state(full_qpos, self.init_qvel)
+        # self.sim.data.qpos = full_qpos
+        # self.model._compute_subtree()
+        # self.model.forward()
         self.attached_object = (-1, -1)
         if len(self.reset_args) > 10:
             self.attached_object = self.all_objects[np.argmax(self.reset_args[10:15])]
         return self.get_current_obs()
 
-    def _step(self, action):
+    def step(self, action):
         if not isinstance(action, int) and action.size > 1:
             action = 0
         self.move(action)
@@ -151,7 +152,7 @@ class BlockPlayPenGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
 
     # TODO deal with collisions
     def move(self, action):
-        current_fist_pos = self.model.data.qpos[0:2].flatten()
+        current_fist_pos = self.sim.data.qpos[0:2].flatten()
         # TODO: Need to put action limits on this
         if action < 4:
             if action == 0:
@@ -170,27 +171,28 @@ class BlockPlayPenGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
             next_fist_pos = np.clip(next_fist_pos, -self.border, self.border)
             # Moving the objects jointly
             if self.attached_object != (-1, -1):
-                current_obj_pos = np.array([self.model.data.qpos[i, 0] for i in self.object_dict[self.attached_object]])
+                current_obj_pos = np.array([self.sim.data.qpos[i] for i in self.object_dict[self.attached_object]])
                 current_obj_pos += (next_fist_pos - current_fist_pos)
 
             # Setting the final positions
-            curr_qpos = self.model.data.qpos.copy()
-            curr_qpos[0, 0] = next_fist_pos[0]
-            curr_qpos[1, 0] = next_fist_pos[1]
+            curr_qpos = self.sim.data.qpos.copy()
+            curr_qpos[0] = next_fist_pos[0]
+            curr_qpos[1] = next_fist_pos[1]
             if self.attached_object != (-1, -1):
                 for enum_n, i in enumerate(self.object_dict[self.attached_object]):
-                    curr_qpos[i, 0] = current_obj_pos[enum_n]
-            self.model.data.qpos = curr_qpos
-            self.model._compute_subtree()
-            self.model.forward()
+                    curr_qpos[i] = current_obj_pos[enum_n]
+            self.set_state(curr_qpos, self.init_qvel)
+            # self.sim.data.qpos = curr_qpos
+            # self.model._compute_subtree()
+            # self.model.forward()
         else:
             if action == 4:
                 # GRASP
                 if self.attached_object == (-1, -1):
-                    current_fist_pos = self.model.data.qpos[0:2].flatten()
+                    current_fist_pos = self.sim.data.qpos[0:2]
                     all_object_positions = []
                     for k, v in self.object_dict.items():
-                        curr_obj_pos = np.array([self.model.data.qpos[i, 0] for i in v])
+                        curr_obj_pos = np.array([self.sim.data.qpos[i] for i in v])
                         dist = np.linalg.norm((current_fist_pos - curr_obj_pos))
                         if dist < self.threshold:
                             self.attached_object = k

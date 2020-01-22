@@ -25,7 +25,7 @@ from traj2vec.models.containers.mixed_network import MixedRecurrentNetwork
 from traj2vec.nn.mlp import MLP
 from traj2vec.nn.parameter import Parameter
 from traj2vec.nn.rnn import RNN
-from traj2vec.launchers.launcher_util_andrew import run_experiment
+from traj2vec.launchers.launcher_util_lep import run_experiment
 from traj2vec.nn.running_stat import ObsNorm
 from traj2vec.utils.torch_utils import set_gpu_mode
 from traj2vec.envs.playpen.blockplaypengym import reward_fn, init_rstate
@@ -230,7 +230,7 @@ variant_group.add_argument('--max_itr', default=1000, type=int)
 v_command_args = parser.parse_args()
 command_args = {k.dest:vars(v_command_args)[k.dest] for k in variant_group._group_actions}
 
-goals = np.load('goals/block.npy').tolist()
+goals = np.load('/private/home/lep/code/Sectar/goals/block.npy', allow_pickle=True).tolist()
 
 params = {
     # number of actions taken in each trajectory, number of obs is path_len+1
@@ -324,3 +324,4 @@ for args in Sweeper(params, 1):
     if command_args['debug'] != 'None':
         sys.exit(0)
     exp_id += 1
+    sys.exit(0)
