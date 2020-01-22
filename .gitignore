@@ -103,3 +103,4 @@ ENV/
 .mypy_cache/
 
 .idea
+traj2vec/viskit/plots-checkpoint.ipynb
