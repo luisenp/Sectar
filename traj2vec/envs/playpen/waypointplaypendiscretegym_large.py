@@ -167,7 +167,7 @@ class WaypointPlayPenDiscreteGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
             next_fist_pos = current_fist_pos + np.array([0, -self.move_distance])
 
         # TODO: Less hardcoded
-        next_fist_pos = np.clip(next_fist_pos, -2.8, 2.8)
+        next_fist_pos = np.clip(next_fist_pos, -5.6, 5.6)
         # Moving the objects jointly
         if self.attached_object != (-1, -1):
             current_obj_pos = np.array([self.sim.data.qpos[i, 0] for i in self.object_dict[self.attached_object]])

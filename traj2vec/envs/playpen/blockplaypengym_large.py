@@ -31,13 +31,15 @@ class BlockPlayPenGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
             reset_args=None,
             goals=np.zeros((8)),
             include_rstate = False,
-            border=2.8,
+            border=5.6,
             *args, **kwargs):
         self.objects = ["cube", "sphere", "cylinder"]
         self.object_colors = ["red", "blue", "black", "yellow"]
         self.target_colors = ["orange", "black", "purple", "blue"]
         self.border = border
         self.rstate = init_rstate(1)
+        if reset_args is not None:
+            raise NotImplementedError
         self.reset_args = reset_args
         self.goals = goals
         self.include_rstate = include_rstate
@@ -117,18 +119,19 @@ class BlockPlayPenGym(gym.envs.mujoco.MujocoEnv, utils.EzPickle):
         # TODO: Better reset function?
         # print(self.reset_args)
         full_qpos = np.zeros(10)
-        full_qpos[2] = 2.6
+        full_qpos[2] = 5.2
         full_qpos[3] = 0.0
 
-        full_qpos[4] = 2.6
-        full_qpos[5] = 1.0
+        full_qpos[4] = 5.2
+        full_qpos[5] = 2.0
 
-        full_qpos[6] = 2.6
-        full_qpos[7] = -1.0
+        full_qpos[6] = 5.2
+        full_qpos[7] = -2.0
 
-        full_qpos[8] = 2.6
-        full_qpos[9] = 2.0
-        full_qpos[:10] = self.reset_args[:10]
+        full_qpos[8] = 5.2
+        full_qpos[9] = 4.0
+        # full_qpos[:10] = self.reset_args[:10]
+        # full_qpos = np.random.uniform(-self.border, self.border, 10)
         if self.init_rstate is not None:
             self.rstate = self.init_rstate(1)
 
