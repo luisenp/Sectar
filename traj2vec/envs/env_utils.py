@@ -17,6 +17,10 @@ def make_env(env_id, seed, rank, log_dir, kwargs=None, monitor=False):
             kwargs=kwargs)
         register(id='WaypointPlaypenDiscrete-v0', entry_point='traj2vec.envs.playpen.waypointplaypendiscretegym:WaypointPlayPenDiscreteGym',
             kwargs=kwargs)
+        register(id='BlockPlaypen-Large-v0', entry_point='traj2vec.envs.playpen.blockplaypengym_large:BlockPlayPenGym',
+            kwargs=kwargs)
+        register(id='WaypointPlaypenDiscrete-Large-v0', entry_point='traj2vec.envs.playpen.waypointplaypendiscretegym_large:WaypointPlayPenDiscreteGym',
+            kwargs=kwargs)
     _REGISTERED = True
 
     def _thunk():
