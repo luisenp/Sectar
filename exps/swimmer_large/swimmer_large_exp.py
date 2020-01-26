@@ -28,7 +28,7 @@ from traj2vec.nn.rnn import RNN
 from traj2vec.launchers.launcher_util_lep import run_experiment
 from traj2vec.nn.running_stat import ObsNorm
 from traj2vec.utils.torch_utils import set_gpu_mode
-from traj2vec.envs.swimmer_large import SwimmerEnv, reward_fn, init_rstate
+from traj2vec.envs.swimmer_large import SwimmerLargeEnv, reward_fn, init_rstate
 import os
 import sys
 import json
@@ -40,7 +40,7 @@ def run_task(vv):
     env_name = None
 
     goals = np.array(vv['goals'])
-    env = lambda : SwimmerEnv(vv['frame_skip'], goals=goals, include_rstate=False) 
+    env = lambda : SwimmerLargeEnv(vv['frame_skip'], goals=goals, include_rstate=False)
 
     obs_dim = int(env().observation_space.shape[0])
     action_dim = int(env().action_space.shape[0])
@@ -239,7 +239,7 @@ variant_group.add_argument('--exp_dir', default='tmp')
 variant_group.add_argument('--mode', default='local')
 variant_group.add_argument('--load_models_dir', default=None)
 variant_group.add_argument('--load_models_idx', default=None, type=int)
-variant_group.add_argument('--env_name', default='SwimmerEnv')
+variant_group.add_argument('--env_name', default='SwimmerLargeEnv')
 variant_group.add_argument('--max_itr', default=1000, type=int)
 variant_group.add_argument('--goal_index', default=0, type=int)
 variant_group.add_argument('--initial_data_path', default='/../traj2vecv3_master/data/test_data/playpen/block_bc.npz')
@@ -309,12 +309,14 @@ env_name = command_args['env_name'].split('-')[0]
 alg_name = command_args['algo']
 exp_dir = command_args['exp_dir']
 print("gpu", command_args['gpu'], type(command_args['gpu']))
-if command_args['debug'] != 'None':
-    with open(command_args['debug'] + "variant.json", 'r') as f:
-        args = json.loads(f.read())
-    for k in ('exp_id','seed'):
-        args[k] = int(args[k])
-    command_args['load_models_dir'] = command_args['debug'] + "snapshots/"
+with open('/private/home/lep/sectar/variant_swimmer.json', 'r') as f:
+    loaded_args = json.loads(f.read())
+for arg_name in loaded_args:
+    if arg_name in args and arg_name not in ['block_config', 'border', 'debug', 'docker',
+                                             'env_name', 'exp_dir', 'exp_id', 'goal_idx', 'gpu',
+                                             'initial_data_path', 'load_models_dir',
+                                             'load_models_idx', 'mode', 'seed', 'unique_id']:
+        args[arg_name] = loaded_args[arg_name]
 base_log_dir = getcwd() + '/data/%s/%s/%s' % (alg_name, env_name, exp_dir)
 
 run_experiment(

@@ -26,7 +26,7 @@ def init_rstate(size):
     return np.zeros(size, dtype=int)
 
 
-class WheeledEnv(MujocoEnv, Serializable):
+class WheeledLargeEnv(MujocoEnv, Serializable):
 
     FILE = 'wheeledasdf.xml'
 
@@ -36,7 +36,7 @@ class WheeledEnv(MujocoEnv, Serializable):
         self.goals = goals
         self.goals = 2 * goals
         kwargs['file_path'] = get_asset_xml('wheeled_large.xml')
-        super(WheeledEnv, self).__init__(*args, **kwargs)
+        super(WheeledLargeEnv, self).__init__(*args, **kwargs)
         Serializable.__init__(self, *args, **kwargs)
         self.frame_skip = 3
 

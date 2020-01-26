@@ -307,12 +307,14 @@ env_name = command_args['env_name'].split('-')[0]
 alg_name = command_args['algo']
 exp_dir = command_args['exp_dir']
 print("gpu", command_args['gpu'], type(command_args['gpu']))
-if command_args['debug'] != 'None':
-    with open(command_args['debug'] + "variant.json", 'r') as f:
-        args = json.loads(f.read())
-    for k in ('exp_id','seed'):
-        args[k] = int(args[k])
-    command_args['load_models_dir'] = command_args['debug'] + "snapshots/"
+with open('/private/home/lep/sectar/variant_wheeled.json', 'r') as f:
+    loaded_args = json.loads(f.read())
+for arg_name in loaded_args:
+    if arg_name in args and arg_name not in ['block_config', 'border', 'debug', 'docker',
+                                             'env_name', 'exp_dir', 'exp_id', 'goal_idx', 'gpu',
+                                             'initial_data_path', 'load_models_dir',
+                                             'load_models_idx', 'mode', 'seed', 'unique_id']:
+        args[arg_name] = loaded_args[arg_name]
 base_log_dir = getcwd() + '/data/%s/%s/%s' % (alg_name, env_name, exp_dir)
 run_experiment(
     run_task,

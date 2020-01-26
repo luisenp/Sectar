@@ -21,7 +21,7 @@ def reward_fn(obs, rstate, goals, every):
 def init_rstate(size):
     return np.zeros(size, dtype=int)
 
-class SwimmerEnv(MujocoEnv, Serializable):
+class SwimmerLargeEnv(MujocoEnv, Serializable):
 
     FILE = 'swimmer_velasdf.xml'
     ORI_IND = 2
@@ -36,7 +36,7 @@ class SwimmerEnv(MujocoEnv, Serializable):
         self.ctrl_cost_coeff = ctrl_cost_coeff
         self.include_rstate = include_rstate
         kwargs['file_path'] = get_asset_xml('swimmer_large_vel.xml')
-        super(SwimmerEnv, self).__init__(*args, **kwargs)
+        super(SwimmerLargeEnv, self).__init__(*args, **kwargs)
         Serializable.quick_init(self, locals())
         self.frame_skip = frame_skip
 
