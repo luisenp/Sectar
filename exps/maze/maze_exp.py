@@ -28,7 +28,7 @@ from traj2vec.nn.rnn import RNN
 from traj2vec.launchers.launcher_util_lep import run_experiment
 from traj2vec.nn.running_stat import ObsNorm
 from traj2vec.utils.torch_utils import set_gpu_mode
-from traj2vec.envs.playpen.waypointplaypendiscretegym_large import reward_fn, init_rstate
+from traj2vec.envs.maze import reward_fn, init_rstate
 import os
 import sys
 import json
@@ -40,9 +40,10 @@ def run_task(vv):
     env_name = vv['env_name']
     env = make_env(env_name, 1, 0, '/tmp/gym')
     obs_dim = int(env().observation_space.shape[0])
-    action_dim = int(env().action_space.n)
+    action_dim = int(env().action_space.shape[0])
     print(obs_dim, action_dim)
 
+    vv['block_config'] = [vv['starts_goals'][0], vv['starts_goals'][1]]
     path_len = vv['path_len']
     data_path = None
     # True so that behavioral cloning has access to actions
@@ -182,7 +183,7 @@ def run_task(vv):
         policy_algo.optimizer.load_state_dict(torch.load(dir + '/policy_optimizer_%d.pkl' % itr))
 
     # waypoints for the agent
-    goals = 2 * np.array(vv['block_config'][1])
+    goals = np.array(vv['starts_goals'][1])
     # reward function for MPC
     rf = lambda obs, rstate: reward_fn(obs, rstate, goals)
 
@@ -213,8 +214,6 @@ def run_task(vv):
                start_itr=0, train_vae_after_add=vv['train_vae_after_add'],
                 joint_training=vv['joint_training'])
 
-
-
 parser = argparse.ArgumentParser()
 
 variant_group = parser.add_argument_group('variant')
@@ -231,22 +230,20 @@ variant_group.add_argument('--mode', default='local')
 variant_group.add_argument('--load_models_dir', default=None)
 variant_group.add_argument('--load_models_idx', default=None, type=int)
 # name of gym env
-variant_group.add_argument('--env_name', default='WaypointPlaypenDiscrete-Large-v0')
+variant_group.add_argument('--env_name', default='MazeEnv-v0')
 variant_group.add_argument('--max_itr', default=1000, type=int)
 variant_group.add_argument('--goal_index', default=0, type=int)
 
 v_command_args = parser.parse_args()
 command_args = {k.dest:vars(v_command_args)[k.dest] for k in variant_group._group_actions}
 
-# goals = np.load('goals/waypoint_goals.npy').tolist()
-goals = np.load('/private/home/lep/code/Sectar/goals/waypoint_goals.npy', allow_pickle=True).tolist()
-goals = [(x[0][:2], x[1]) for x in goals]
+starts_goals = np.load('/private/home/lep/code/Sectar/goals/maze.npy').tolist()
 
 params = {
     # number of actions taken in each trajectory, number of obs is path_len+1
     'path_len': [19],
     # specifies goals and initial position
-    'block_config':goals,
+    'starts_goals': starts_goals,
     # horizon in latents of MPC planning
     'mpc_plan': [10],
     # total horizon in each MPC rollout
@@ -260,7 +257,7 @@ params = {
     # Length in latents of explorer policy horizon
     'mpc_explore_len': [5],
     # Train on replay buffer and latest collected data jointly
-    'joint_training':[False],
+    'joint_training': [True],
     # whether to train latents sampled in previous iteration to be consistent
     'consis_finetuning':[False],
     # Train explorer with true reward, specify scale of such reward
@@ -301,7 +298,7 @@ params = {
     'seed': [111],
 
     # weight of behavioral cloning loss for vae training
-    'bc_weight' : [100],
+    'bc_weight': [100],
 }
 
 exp_id = 0

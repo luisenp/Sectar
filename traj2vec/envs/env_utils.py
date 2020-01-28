@@ -13,6 +13,8 @@ def get_asset_xml(xml_name):
 def make_env(env_id, seed, rank, log_dir, kwargs=None, monitor=False):
     global _REGISTERED
     if not _REGISTERED:
+        register(id='MazeEnv-v0', entry_point='traj2vec.envs.maze:MazeEnv',
+            kwargs=kwargs)
         register(id='BlockPlaypen-v0', entry_point='traj2vec.envs.playpen.blockplaypengym:BlockPlayPenGym',
             kwargs=kwargs)
         register(id='WaypointPlaypenDiscrete-v0', entry_point='traj2vec.envs.playpen.waypointplaypendiscretegym:WaypointPlayPenDiscreteGym',
