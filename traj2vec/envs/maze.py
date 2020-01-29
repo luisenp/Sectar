@@ -51,7 +51,7 @@ class MazeEnv(mujoco_env.MujocoEnv, utils.EzPickle):
     def reset(self, reset_args=None):
         obs = super().reset()
         if reset_args is not None:
-            return self.set_agent_abs_pos(reset_args)
+            return self.set_agent_abs_pos(reset_args[:2])
         return obs
 
     def _get_obs(self):

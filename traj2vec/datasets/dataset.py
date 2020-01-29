@@ -6,6 +6,7 @@ from traj2vec.utils.torch_utils import from_numpy
 
 class Dataset:
     def __init__(self, data_path, raw_data=None, data_size=-1, batch_size=32, normalize=False):
+        # import pdb; pdb.set_trace()
         self.data_path = data_path
         self.batch_size = batch_size
         self.normalize = normalize
@@ -118,6 +119,7 @@ class TrajDataset(Dataset):
         :param kwargs:
         """
         super().__init__(**kwargs)
+        # import pdb; pdb.set_trace()
         self.obs_dim = obs_dim
         self.action_dim = action_dim
         self.path_len = path_len
@@ -194,6 +196,7 @@ class BufferTrajDataset(TrajDataset):
         super().__init__(**kwargs)
         self.buffer_size = buffer_size
         buffer_shape = tuple([buffer_size] + list(self.train_data.shape[1:]))
+        # import pdb; pdb.set_trace()
         self.train_buffer = np.zeros(buffer_shape)
         assert self.n <= buffer_size, "Buffer size should be bigger than data"
         self.train_buffer[:self.n] = self.train_data
@@ -294,6 +297,7 @@ class WheeledContDataset(BufferTrajDataset):
     def num_obj(self):
         return 4
 
+
 class PlayPenContDataset(BufferTrajDataset):
 
     def process(self, traj):
@@ -312,7 +316,7 @@ class PlayPenContDataset(BufferTrajDataset):
         if color is not None:
             colors[0] = color
         num_moving = self.num_obj() + 1
-        if len(plot_traj.shape) == 2: 
+        if len(plot_traj.shape) == 2:
             plot_traj = [plot_traj]
         for traj in plot_traj:
             for i in range(num_moving):
@@ -326,6 +330,86 @@ class PlayPenContDataset(BufferTrajDataset):
                     obj_pos = picked_idx == i
                     ax.scatter(traj[:, 0][obj_pos], traj[:, 1][obj_pos], facecolors='none', edgecolors=colors[i])
 
+
+    def plot_pd_compare(self, traj_lst, traj_names, itr, name='Full_State', save_dir='full_state', goals=None, goalidx=None):
+        colors = ['magenta', 'green', 'black', 'yellow']
+        if goals is not None:
+            if goals.reshape((-1, 2)).shape[0] > len(colors):
+                import matplotlib.cm as cm
+                colors = cm.rainbow(np.linspace(0, 1, goals.shape[0]))
+                goals = goals[goalidx:]
+                colors = colors[goalidx:]
+        f, axarr = plt.subplots(1, len(traj_lst), sharex=True, sharey=True)
+        for ax, traj, traj_name in zip(axarr, traj_lst, traj_names):
+            self.plot_all_traj(traj, ax)
+            if goals is not None:
+                for pt, color in zip(goals.reshape((-1, 2)), colors):
+                    ax.scatter(pt[0], pt[1], color=color, marker='x')
+            ax.set_xlim(-3, 3)
+            ax.set_ylim(-3, 3)
+            ax.set_title(traj_name)
+        record_fig(name, save_dir, itr)
+
+    def num_obj(self):
+        return 4
+
+
+class MazeContDataset(BufferTrajDataset):
+
+    def process(self, traj):
+        # Process for plotting
+        if len(traj.shape) == 2:
+            return traj.reshape((traj.shape[0], self.path_len, -1))[:, :, :2]
+        else:
+            return traj[:, :, :2]
+
+    def plot_maze(self, ax=None):
+        if ax is None:
+            plt.plot([-0.15, -0.15], [0.35, -0.35], color="black")
+            plt.plot([0.15, 0.15], [0.35, -0.35], color="black")
+            plt.plot([-0.15, 0.15], [-0.35, -0.35], color="black")
+            plt.plot([-0.15, -0.05], [0.35, 0.35], color="black")
+            plt.plot([0.15, 0.05], [0.35, 0.35], color="black")
+            plt.plot([0.05, 0.05], [0.35, -0.2], color="black")
+            plt.plot([-0.05, -0.05], [0.35, -0.2], color="black")
+            plt.plot(
+                0.05 * np.cos(np.arange(-np.pi, 0, 0.1)),
+                0.05 * np.sin(np.arange(-np.pi, 0, 0.1)) - 0.2,
+                color="black"
+            )
+        else:
+            ax.plot([-0.15, -0.15], [0.35, -0.35], color="black")
+            ax.plot([0.15, 0.15], [0.35, -0.35], color="black")
+            ax.plot([-0.15, 0.15], [-0.35, -0.35], color="black")
+            ax.plot([-0.15, -0.05], [0.35, 0.35], color="black")
+            ax.plot([0.15, 0.05], [0.35, 0.35], color="black")
+            ax.plot([0.05, 0.05], [0.35, -0.2], color="black")
+            ax.plot([-0.05, -0.05], [0.35, -0.2], color="black")
+            ax.plot(
+                0.05 * np.cos(np.arange(-np.pi, 0, 0.1)),
+                0.05 * np.sin(np.arange(-np.pi, 0, 0.1)) - 0.2,
+                color="black"
+            )
+
+    def plot_all_traj(self, plot_traj, ax, color=None):
+        self.plot_maze(ax)
+        colors = ['purple', 'magenta', 'green', 'black', 'yellow']
+        if color is not None:
+            colors[0] = color
+        num_moving = self.num_obj() + 1
+        if len(plot_traj.shape) == 2: 
+            plot_traj = [plot_traj]
+        for traj in plot_traj:
+            for i in range(num_moving):
+                if i * 2 + 1 < traj.shape[1]:
+                    ax.plot(traj[:, i*2], traj[:, i*2+1], color=colors[i])
+                    ax.scatter(traj[-1, i*2], traj[-1, i*2+1], color=colors[i], s = 100)
+
+            if num_moving*2 < traj.shape[1]:
+                picked_idx = traj[:, num_moving*2:].argmax(axis=-1)
+                for i in range(num_moving):
+                    obj_pos = picked_idx == i
+                    ax.scatter(traj[:, 0][obj_pos], traj[:, 1][obj_pos], facecolors='none', edgecolors=colors[i])
 
     def plot_pd_compare(self, traj_lst, traj_names, itr, name='Full_State', save_dir='full_state', goals=None, goalidx=None):
         colors = ['magenta', 'green', 'black', 'yellow']

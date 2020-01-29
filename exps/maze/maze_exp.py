@@ -13,7 +13,7 @@ from traj2vec.algos.ppo import PPO
 from traj2vec.algos.vae_bc import TrajVAEBC
 from traj2vec.algos.vaepdentropy import VAEPDEntropy
 from traj2vec.algos.vpg import VPG
-from traj2vec.datasets.dataset import PlayPenContDataset
+from traj2vec.datasets.dataset import MazeContDataset
 from traj2vec.envs.env_utils import make_env
 from traj2vec.models.baselines.baseline import ZeroBaseline
 from traj2vec.models.baselines.linear_feature_baseline import LinearFeatureBaseline
@@ -57,18 +57,18 @@ def run_task(vv):
         train_data = np.load(dir + "/traindata.npy").reshape((-1, path_len+1, obs_dim + action_dim))
         print('train_data', train_data.shape)
 
-    train_dataset = PlayPenContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
+    train_dataset = MazeContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
                           env_id='Playpen', normalize=False, use_actions=use_actions, batch_size=vv['batch_size'],
                                       buffer_size=vv['buffer_size'])
     #validation set for vae training
-    test_dataset = PlayPenContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
-                          env_id='Playpen', normalize=False, use_actions=use_actions, batch_size=vv['batch_size']//9,
-                                      buffer_size=vv['buffer_size']//9)
+    test_dataset = MazeContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
+                          env_id='Playpen', normalize=False, use_actions=use_actions, batch_size=vv['batch_size'],
+                                      buffer_size=vv['buffer_size'])
 
     #this holds the data from the latest iteration for joint training
-    dummy_dataset = PlayPenContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
+    dummy_dataset = MazeContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
                           env_id='Playpen', normalize=False, use_actions=use_actions, batch_size=vv['batch_size'],
-                                      buffer_size=vv['dummy_buffer_size'])
+                                      buffer_size=vv['buffer_size'])
 
     train_dataset.clear()
     test_dataset.clear()
@@ -131,18 +131,15 @@ def run_task(vv):
             cat_output_dim=cat_output_dim
         )
 
-    # policy decoder
-    policy = CategoricalNetwork(
-        prob_network=MLP(obs_dim+ latent_dim, action_dim, hidden_sizes=(400, 300, 200),
-                         hidden_act=nn.ReLU, final_act=nn.Softmax),
-        output_dim=action_dim
+    policy = GaussianNetwork(
+        mean_network=MLP(obs_dim+latent_dim, action_dim, hidden_sizes=vv['policy_hidden_sizes'],
+                         hidden_act=nn.ReLU),
+        log_var_network=Parameter(obs_dim+latent_dim, action_dim, init=np.log(1))
     )
-
-    # explorer policy
-    policy_ex = CategoricalNetwork(
-        prob_network=MLP(obs_dim, action_dim, hidden_sizes=(400, 300, 200),
-                         hidden_act=nn.ReLU, final_act=nn.Softmax),
-        output_dim=action_dim
+    policy_ex = GaussianNetwork(
+        mean_network=MLP(obs_dim, action_dim, hidden_sizes=vv['policy_hidden_sizes'],
+                         hidden_act=nn.ReLU),
+        log_var_network=Parameter(obs_dim, action_dim, init=np.log(20))
     )
 
     # vae with behavioral cloning
@@ -202,7 +199,6 @@ def run_task(vv):
                   reset_ent = vv['reset_ent'],
                   vae_train_steps = vv['vae_train_steps'],
                   mpc_explore_len=vv['mpc_explore_len'],
-                  consis_finetuning = vv['consis_finetuning'],
                   true_reward_scale=vv['true_reward_scale'],
                   discount_factor=vv['discount_factor'],
                   reward_fn=(rf, init_rstate)
@@ -240,65 +236,46 @@ command_args = {k.dest:vars(v_command_args)[k.dest] for k in variant_group._grou
 starts_goals = np.load('/private/home/lep/code/Sectar/goals/maze.npy').tolist()
 
 params = {
-    # number of actions taken in each trajectory, number of obs is path_len+1
     'path_len': [19],
-    # specifies goals and initial position
     'starts_goals': starts_goals,
-    # horizon in latents of MPC planning
-    'mpc_plan': [10],
-    # total horizon in each MPC rollout
-    'mpc_max': [20],
-    # Minimum entropy for resetting explorer
-    'reset_ent': [1.34],
-    # How many MPC rollouts to collect per iteration
+    'mpc_plan': [20],
+    'mpc_max': [50],
+    'add_frac': [100],
+    'vae_train_steps': [30],
+    'reset_ent': [0],
     'mpc_batch': [40],
-    # How many initial states to sample for explorer
-    'mpc_explore_step':[400],
-    # Length in latents of explorer policy horizon
-    'mpc_explore_len': [5],
-    # Train on replay buffer and latest collected data jointly
+    'mpc_explore_step': [400],
+    'mpc_explore_len': [10],
+    'sparse_reward': [True],
     'joint_training': [True],
-    # whether to train latents sampled in previous iteration to be consistent
-    'consis_finetuning':[False],
-    # Train explorer with true reward, specify scale of such reward
     'true_reward_scale': [0],
-    # Discount factor of MPC
-    'discount_factor':[0.99],
-
-    # Params for policy decoder
-    'policy_hidden_sizes': [(128, 128)],
-    # Encoder / Decoder
+    'discount_factor': [0.99],
+    'policy_type': ['gmlp'],
+    'policy_rnn_hidden_dim': [128],
+    'policy_hidden_sizes': [(400, 300, 200)],
+    'random_action_p': [0],
     'encoder_type': ['lstm'],
-    # dimension of latent space
     'latent_dim': [8],
-
-    # hidden sizes for encoder if MLP
+    'use_actions': [True],
     'encoder_hidden_sizes': [(128, 128, 128)],
-    # hidden sizes for decoder if MLP
     'decoder_hidden_sizes': [(128, 128, 128)],
-    'decoder_rnn_hidden_dim': [256],
+    'decoder_rnn_hidden_dim': [512],
     'decoder_type': ['grnn'],
     'decoder_var_type': ['param'],
+    'initial_data_size': [9000],
+    'buffer_size': [1000000],
+    'dummy_buffer_size': [1800*5],
 
-    'buffer_size': [1800 * 5],
-    'dummy_buffer_size': [1800*5],#, 1800 * 20, 1800],
-    # VAE params
-    'vae_loss_type': ['ll'],
-    'kl_weight': [2],
     'vae_lr': [1e-3],
-    # Policy optimization params
     'policy_lr': [3e-4],
-    'entropy_bonus': [0],
+    'entropy_bonus': [1e-3],
     'use_gae': [True],
-    # Number of times to train vae per iteration
-    'train_vae_after_add': [10],
-    # Number of batches per vae training step 
-    'vae_train_steps': [30],
     'batch_size': [300],
     'seed': [111],
-
-    # weight of behavioral cloning loss for vae training
     'bc_weight': [100],
+    'kl_weight': [2],
+    'vae_loss_type': ['ll'],
+    'train_vae_after_add': [10],
 }
 
 exp_id = 0
@@ -309,7 +286,7 @@ env_name = command_args['env_name'].split('-')[0]
 alg_name = command_args['algo']
 exp_dir = command_args['exp_dir']
 print("gpu", command_args['gpu'], type(command_args['gpu']))
-with open('/private/home/lep/sectar/variant_waypoint.json', 'r') as f:
+with open('/private/home/lep/sectar/variant_wheeled.json', 'r') as f:
     loaded_args = json.loads(f.read())
 for arg_name in loaded_args:
     if arg_name in args and arg_name not in ['block_config', 'border', 'debug', 'docker',

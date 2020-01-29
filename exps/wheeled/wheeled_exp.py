@@ -42,6 +42,7 @@ def run_task(vv):
 
     obs_dim = int(env().observation_space.shape[0])
     action_dim = int(env().action_space.shape[0])
+    print('DIMS', obs_dim, action_dim)
     vv['block_config'] = [env().reset().tolist(), vv['goals']]
     print(vv['block_config'])
 
