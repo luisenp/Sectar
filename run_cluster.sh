@@ -2,8 +2,7 @@
 
 CURDIR=`pwd`
 
-#for ENV in swimmer swimmer_large block block_large wheeled wheeled_large waypoint waypoint_large; do
-for ENV in maze; do
+for ENV in maze swimmer swimmer_large block block_large wheeled wheeled_large waypoint waypoint_large; do
     CHECKPOINT_DIR=$1/${ENV}
     for GOAL in 0 1 2 3 4 5 6 7 8 9; do
         SUBDIR=${CHECKPOINT_DIR}/goal_${GOAL}
