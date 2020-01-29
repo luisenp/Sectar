@@ -6,7 +6,8 @@ from gym.envs.mujoco import mujoco_env
 
 
 def reward_fn(obs, rstate, goals):
-    goals_aug = np.concatenate((goals.reshape(1, 2), np.zeros((1, 2))))
+    goals = goals.reshape(1, 2)
+    goals_aug = np.concatenate((goals, np.zeros((1, 2))))
     ngoals = goals.shape[0]
     cur_goal = goals_aug[rstate]
     reward = np.zeros(obs.shape[0])
