@@ -13,7 +13,7 @@ from traj2vec.algos.ppo import PPO
 from traj2vec.algos.vae_bc import TrajVAEBC
 from traj2vec.algos.vaepdentropy import VAEPDEntropy
 from traj2vec.algos.vpg import VPG
-from traj2vec.datasets.dataset import WheeledContDataset
+from traj2vec.datasets.dataset import MazeContDataset
 from traj2vec.envs.env_utils import make_env
 from traj2vec.models.baselines.baseline import ZeroBaseline
 from traj2vec.models.baselines.linear_feature_baseline import LinearFeatureBaseline
@@ -28,7 +28,7 @@ from traj2vec.nn.rnn import RNN
 from traj2vec.launchers.launcher_util_lep import run_experiment
 from traj2vec.nn.running_stat import ObsNorm
 from traj2vec.utils.torch_utils import set_gpu_mode
-from traj2vec.envs.wheeled import WheeledEnv, reward_fn, init_rstate
+from traj2vec.envs.maze import reward_fn, init_rstate
 import os
 import sys
 import json
@@ -37,30 +37,36 @@ import json
 
 def run_task(vv):
     set_gpu_mode(vv['gpu'])
-    env_name = None
-    env = lambda : WheeledEnv() 
-
+    env_name = vv['env_name']
+    env = make_env(env_name, 1, 0, '/tmp/gym')
     obs_dim = int(env().observation_space.shape[0])
     action_dim = int(env().action_space.shape[0])
-    print('DIMS', obs_dim, action_dim)
-    vv['block_config'] = [env().reset().tolist(), vv['goals']]
-    print(vv['block_config'])
+    print(obs_dim, action_dim)
 
+    vv['block_config'] = [vv['starts_goals'][0], vv['starts_goals'][1]]
     path_len = vv['path_len']
-    data_path = vv['initial_data_path']
+    data_path = None
+    # True so that behavioral cloning has access to actions
+    use_actions = True
 
-    use_actions = vv['use_actions']
-
+    #create a dummy datset since we initialize with no data
     dummy = np.zeros((1, path_len+1, obs_dim + action_dim))
     train_data, test_data = dummy, dummy
+    if vv['load_models_dir'] is not None:
+        dir = getcwd() + "/research/lang/traj2vecv3_jd/" + vv['load_models_dir']
+        train_data = np.load(dir + "/traindata.npy").reshape((-1, path_len+1, obs_dim + action_dim))
+        print('train_data', train_data.shape)
 
-    train_dataset = WheeledContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
+    train_dataset = MazeContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
                           env_id='Playpen', normalize=False, use_actions=use_actions, batch_size=vv['batch_size'],
                                       buffer_size=vv['buffer_size'])
-    test_dataset = WheeledContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
-                          env_id='Playpen', normalize=False, use_actions=use_actions, batch_size=vv['batch_size']//9,
-                                      buffer_size=vv['buffer_size']//9)
-    dummy_dataset = WheeledContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
+    #validation set for vae training
+    test_dataset = MazeContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
+                          env_id='Playpen', normalize=False, use_actions=use_actions, batch_size=vv['batch_size'],
+                                      buffer_size=vv['buffer_size'])
+
+    #this holds the data from the latest iteration for joint training
+    dummy_dataset = MazeContDataset(data_path=data_path, raw_data=train_data, obs_dim=obs_dim, action_dim=action_dim, path_len=path_len,
                           env_id='Playpen', normalize=False, use_actions=use_actions, batch_size=vv['batch_size'],
                                       buffer_size=vv['buffer_size'])
 
@@ -69,12 +75,11 @@ def run_task(vv):
     dummy_dataset.clear()
 
     latent_dim = vv['latent_dim']
-    policy_rnn_hidden_dim = vv['policy_rnn_hidden_dim']
     rnn_hidden_dim = vv['decoder_rnn_hidden_dim']
 
     step_dim = obs_dim
 
-    rnn_hidden_dim = 256
+    # build encoder
     if vv['encoder_type'] == 'mlp':
         encoder = GaussianNetwork(
             mean_network=MLP((path_len+1)*step_dim, latent_dim, hidden_sizes=vv['encoder_hidden_sizes'], hidden_act=nn.ReLU),
@@ -89,7 +94,7 @@ def run_task(vv):
             log_var_network=MLP(2 * rnn_hidden_dim, latent_dim)
         )
 
-
+    # build state decoder
     if vv['decoder_var_type'] == 'param':
         decoder_log_var_network = Parameter(latent_dim, step_dim, init=np.log(0.1))
     else:
@@ -98,6 +103,7 @@ def run_task(vv):
         decoder = GaussianRecurrentNetwork(
             recurrent_network=RNN(nn.LSTM(step_dim + latent_dim, rnn_hidden_dim), rnn_hidden_dim),
             mean_network=MLP(rnn_hidden_dim, step_dim, hidden_sizes=vv['decoder_hidden_sizes'], hidden_act=nn.ReLU),
+            #log_var_network=Parameter(latent_dim, step_dim, init=np.log(0.1)),
             log_var_network=decoder_log_var_network,
             path_len=path_len,
             output_dim=step_dim,
@@ -125,75 +131,42 @@ def run_task(vv):
             cat_output_dim=cat_output_dim
         )
 
-    # Policy
-    if vv['policy_type'] == 'grnn':
-        policy = GaussianRecurrentPolicy(
-            recurrent_network=RNN(nn.LSTM(obs_dim+latent_dim, policy_rnn_hidden_dim), policy_rnn_hidden_dim),
-            mean_network=MLP(policy_rnn_hidden_dim, action_dim,
-                             hidden_act=nn.ReLU),
-            log_var_network=Parameter(obs_dim+latent_dim, action_dim, init=np.log(1)),
-            path_len=path_len,
-            output_dim=action_dim
-        )
+    policy = GaussianNetwork(
+        mean_network=MLP(obs_dim+latent_dim, action_dim, hidden_sizes=vv['policy_hidden_sizes'],
+                         hidden_act=nn.ReLU),
+        log_var_network=Parameter(obs_dim+latent_dim, action_dim, init=np.log(1))
+    )
+    policy_ex = GaussianNetwork(
+        mean_network=MLP(obs_dim, action_dim, hidden_sizes=vv['policy_hidden_sizes'],
+                         hidden_act=nn.ReLU),
+        log_var_network=Parameter(obs_dim, action_dim, init=np.log(20))
+    )
 
-    elif vv['policy_type'] == 'gmlp':
-        policy = GaussianNetwork(
-            mean_network=MLP(obs_dim+latent_dim, action_dim, hidden_sizes=vv['policy_hidden_sizes'],
-                             hidden_act=nn.ReLU),
-            log_var_network=Parameter(obs_dim+latent_dim, action_dim, init=np.log(1))
-        )
-        policy_ex = GaussianNetwork(
-            mean_network=MLP(obs_dim, action_dim, hidden_sizes=vv['policy_hidden_sizes'],
-                             hidden_act=nn.ReLU),
-            log_var_network=Parameter(obs_dim, action_dim, init=np.log(20))
-        )
-    elif vv['policy_type'] == 'crnn':
-        policy = RecurrentCategoricalPolicy(
-            recurrent_network=RNN(nn.LSTM(obs_dim + latent_dim, policy_rnn_hidden_dim), policy_rnn_hidden_dim),
-            prob_network=MLP(policy_rnn_hidden_dim, action_dim, hidden_sizes=vv['policy_hidden_sizes'], final_act=nn.Softmax),
-            path_len=path_len,
-            output_dim=action_dim
-        )
-    elif vv['policy_type'] == 'cmlp':
-        policy = CategoricalNetwork(
-            prob_network=MLP(obs_dim+ latent_dim, action_dim, hidden_sizes=(400, 300, 200),
-                             hidden_act=nn.ReLU, final_act=nn.Softmax),
-            output_dim=action_dim
-        )
-        policy_ex = CategoricalNetwork(
-            prob_network=MLP(obs_dim, action_dim, hidden_sizes=(400, 300, 200),
-                             hidden_act=nn.ReLU, final_act=nn.Softmax),
-            output_dim=action_dim
-        )
-    elif vv['policy_type'] == 'lstm':
-        policy = LSTMPolicy(input_dim = obs_dim + latent_dim,
-                     hidden_dim = rnn_hidden_dim, 
-                     num_layers = 2, 
-                     output_dim = action_dim)
-
-
-
+    # vae with behavioral cloning
     vae = TrajVAEBC(encoder=encoder, decoder=decoder, latent_dim=latent_dim, step_dim=step_dim,
                   feature_dim=train_dataset.obs_dim, env=env, path_len=train_dataset.path_len,
                   init_kl_weight=vv['kl_weight'], max_kl_weight=vv['kl_weight'], kl_mul=1.03,
                   loss_type=vv['vae_loss_type'], lr=vv['vae_lr'], obs_dim=obs_dim,
                   act_dim=action_dim, policy=policy, bc_weight=vv['bc_weight'])
 
-
+    # 0 baseline due to constantly changing rewards
     baseline = ZeroBaseline()
+    # policy opt for policy decoder
     policy_algo = PPO(env, env_name, policy, baseline=baseline, obs_dim=obs_dim,
                              action_dim=action_dim, max_path_length=path_len, center_adv=True,
                      optimizer=optim.Adam(policy.get_params(), vv['policy_lr'], eps=1e-5), #vv['global_lr']),
                       use_gae=vv['use_gae'], epoch=10, ppo_batch_size=200)
 
+    # baseline for the explorer
     baseline_ex = ZeroBaseline()
+    # policy opt for the explorer
     policy_ex_algo = PPO(env, env_name, policy_ex, baseline=baseline_ex, obs_dim=obs_dim,
                              action_dim=action_dim, max_path_length=path_len, center_adv=True,
                      optimizer=optim.Adam(policy_ex.get_params(), vv['policy_lr'], eps=1e-5), #vv['global_lr']),
                       use_gae=vv['use_gae'], epoch=10, ppo_batch_size=200,
                       entropy_bonus = vv['entropy_bonus'])
 
-
+    # for loading the model from a saved state
     if vv['load_models_dir'] is not None:
         dir = getcwd() + "/research/lang/traj2vecv3_jd/" + vv['load_models_dir']
         itr = vv['load_models_idx']
@@ -201,12 +174,17 @@ def run_task(vv):
         decoder.load_state_dict(torch.load(dir + '/decoder_%d.pkl' % itr))
         policy.load_state_dict(torch.load(dir + '/policy_%d.pkl' % itr))
         policy_ex.load_state_dict(torch.load(dir + '/policy_ex_%d.pkl' % itr))
-        vae.optimizer.load_state_dict(torch.load(dir + '/vae_optimizer_%d.pkl' % itr))
+        adam_state = torch.load(dir + '/vae_optimizer_%d.pkl' % itr)
+        adam_state['param_groups'][0]['eps'] = 1e-5
+        vae.optimizer.load_state_dict(adam_state)
         policy_algo.optimizer.load_state_dict(torch.load(dir + '/policy_optimizer_%d.pkl' % itr))
 
-    goals = np.array(vv['block_config'][1])
+    # waypoints for the agent
+    goals = np.array(vv['starts_goals'][1])
+    # reward function for MPC
     rf = lambda obs, rstate: reward_fn(obs, rstate, goals)
 
+    # main algorithm launcher, includes mpc controller and exploration
     vaepd = VAEPDEntropy(env, env_name, policy, policy_ex, encoder, decoder,
         path_len, obs_dim, action_dim, step_dim, policy_algo, policy_ex_algo,
                   train_dataset, latent_dim, vae,
@@ -217,7 +195,7 @@ def run_task(vv):
                   mpc_batch = vv['mpc_batch'],
                   rand_per_mpc_step = vv['mpc_explore_step'],
                   mpc_explore = 2048, 
-                  mpc_explore_batch = 3,
+                  mpc_explore_batch = 5,
                   reset_ent = vv['reset_ent'],
                   vae_train_steps = vv['vae_train_steps'],
                   mpc_explore_len=vv['mpc_explore_len'],
@@ -228,50 +206,50 @@ def run_task(vv):
 
 
     vaepd.train(train_dataset, test_dataset=test_dataset, dummy_dataset=dummy_dataset, plot_step=10, max_itr=vv['max_itr'], record_stats=True, print_step=1000,
-                             save_step=20, 
+                             save_step=2,
                start_itr=0, train_vae_after_add=vv['train_vae_after_add'],
                 joint_training=vv['joint_training'])
-
-
 
 parser = argparse.ArgumentParser()
 
 variant_group = parser.add_argument_group('variant')
+# this is just a name for the saving directory
 variant_group.add_argument('--algo', default='entropy')
+# useful for debugging a trained loaded model
 variant_group.add_argument('--debug', default='None')
 variant_group.add_argument('--gpu', default="True")
+# name for exploration directory
 variant_group.add_argument('--exp_dir', default='tmp')
+# where to run, can be ec2, local_docker, local
 variant_group.add_argument('--mode', default='local')
+# params for loading the model
 variant_group.add_argument('--load_models_dir', default=None)
 variant_group.add_argument('--load_models_idx', default=None, type=int)
-variant_group.add_argument('--env_name', default='WheeledEnvGym-v0')
+# name of gym env
+variant_group.add_argument('--env_name', default='MazeEnv-v0')
 variant_group.add_argument('--max_itr', default=1000, type=int)
 variant_group.add_argument('--goal_index', default=0, type=int)
-variant_group.add_argument('--initial_data_path', default='/../traj2vecv3_master/data/test_data/playpen/block_bc.npz')
 
 v_command_args = parser.parse_args()
 command_args = {k.dest:vars(v_command_args)[k.dest] for k in variant_group._group_actions}
-launcher_config.DIR_AND_MOUNT_POINT_MAPPINGS.append(
-    dict(local_dir=getcwd() + command_args['initial_data_path'],
-         mount_point='/root/code' + command_args['initial_data_path']))
 
-goals = np.load('/private/home/lep/code/Sectar/goals/wheeled.npy').tolist()
+starts_goals = np.load('/private/home/lep/code/Sectar/goals/maze.npy').tolist()
 
 params = {
     'path_len': [19],
-    'goals':goals,
+    'starts_goals': starts_goals,
     'mpc_plan': [20],
     'mpc_max': [50],
     'add_frac': [100],
     'vae_train_steps': [30],
     'reset_ent': [0],
     'mpc_batch': [40],
-    'mpc_explore_step':[400],
-    'mpc_explore_len':[10],
-    'sparse_reward':[True],
-    'joint_training':[True],
-    'true_reward_scale':[0],
-    'discount_factor':[0.99],
+    'mpc_explore_step': [400],
+    'mpc_explore_len': [10],
+    'sparse_reward': [True],
+    'joint_training': [True],
+    'true_reward_scale': [0],
+    'discount_factor': [0.99],
     'policy_type': ['gmlp'],
     'policy_rnn_hidden_dim': [128],
     'policy_hidden_sizes': [(400, 300, 200)],
@@ -286,7 +264,7 @@ params = {
     'decoder_var_type': ['param'],
     'initial_data_size': [9000],
     'buffer_size': [1000000],
-    
+    'dummy_buffer_size': [1800*5],
 
     'vae_lr': [1e-3],
     'policy_lr': [3e-4],
@@ -294,7 +272,7 @@ params = {
     'use_gae': [True],
     'batch_size': [300],
     'seed': [111],
-    'bc_weight' : [100],
+    'bc_weight': [100],
     'kl_weight': [2],
     'vae_loss_type': ['ll'],
     'train_vae_after_add': [10],

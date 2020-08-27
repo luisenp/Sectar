@@ -260,7 +260,7 @@ params = {
     # Length in latents of explorer policy horizon
     'mpc_explore_len': [5],
     # Train on replay buffer and latest collected data jointly
-    'joint_training':[True, False],
+    'joint_training':[False],
     # whether to train latents sampled in previous iteration to be consistent
     'consis_finetuning':[False],
     # Train explorer with true reward, specify scale of such reward
@@ -283,7 +283,7 @@ params = {
     'decoder_type': ['grnn'],
     'decoder_var_type': ['param'],
 
-    'buffer_size': [1800 * 5, 1800 * 20],
+    'buffer_size': [1800 * 5],
     'dummy_buffer_size': [1800*5],#, 1800 * 20, 1800],
     # VAE params
     'vae_loss_type': ['ll'],

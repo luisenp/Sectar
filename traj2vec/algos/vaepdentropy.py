@@ -291,6 +291,7 @@ class VAEPDEntropy:
 
         print("Adding ", ntrain, ", Valid: ", nvalid)
 
+        # import pdb; pdb.set_trace()
         dataset.add_samples(trajacts[:ntrain].reshape((ntrain, -1)))
         test_dataset.add_samples(trajacts[-nvalid:].reshape((nvalid, -1)))
 
